@@ -1,0 +1,6 @@
+<script>
+window.gameName = "<%= @name %>"
+</script>
+<div id="root">
+  Hold on!
+</div>

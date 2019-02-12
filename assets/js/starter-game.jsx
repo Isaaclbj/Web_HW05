@@ -2,27 +2,49 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import _ from 'lodash';
 
-export default function game_init(root) {
-  ReactDOM.render(<Memory />, root);
+//starter code copied from lecture note "hangman" by Professor Nat Tuck
+
+export default function game_init(root, channel) {
+  ReactDOM.render(<Memory channel={channel} />, root);
 }
-function ran() {
-  return _.shuffle(["a","a","b","b","c","c","d","d",
-  "e","e","f","f","g","g","h","h"]);
-}
+
 
 class Memory extends React.Component {
   constructor(props) {
     super(props);
+    this.channel = props.channel;
+    this.pause = false;
     this.state = {
-      letters: ran(),
+      letters: [],
       trying: [],
-      done: []};
+      done: []
+     };
+    this.channel
+        .join()
+        .receive("ok", this.got_view.bind(this))
+        .receive("error", resp => {console.log("Unable to join", resp);} );
   }
 
+
+  got_view(view) {
+      console.log("new view", view);
+      this.setState(view.game)
+      if (view.game.trying.length > 1) {
+          this.pause = true;
+          this.timeout();
+      }
+  }
+
+  timeout() {
+      setTimeout(()=>{this.channel.push("match", {})
+          .receive("ok",this.got_view.bind(this));
+          this.pause = false;},1000)
+  }
+
+
   restart() {
-    this.setState({
-      letters: ran(), trying: [], done: []
-    })
+    this.channel.push("restart")
+        .receive("ok", this.get_view.bind(this));
   }
 
 
@@ -40,19 +62,15 @@ class Memory extends React.Component {
                 <Letter
                 letter = {letter}
                 onClick = {this.flip.bind(this,index)}
-                try = {trying.includes(index).toString()}
-                don = {done.includes(index).toString()}
+                trying = {trying.includes(index).toString()}
                 key = {index}/>
               )}
           </div>
           <div className="column">
             {letters.slice(4,8).map((letter,index) =>
-
                 <Letter
                 letter = {letter}
-                onClick = {this.flip.bind(this,index+4)}
-                try = {trying.includes(index +4).toString()}
-                don = {done.includes(index +4).toString()}
+                trying = {trying.includes(index + 4).toString()}
                 key = {index+4}/>
               )}
           </div>
@@ -61,9 +79,8 @@ class Memory extends React.Component {
 
                 <Letter
                 letter = {letter}
+                trying = {trying.includes(index+8).toString()}
                 onClick = {this.flip.bind(this,index+8)}
-                try = {trying.includes(index+8).toString()}
-                don = {done.includes(index+8).toString()}
                 key = {index+8}/>
               )}
           </div>
@@ -72,9 +89,8 @@ class Memory extends React.Component {
 
                 <Letter
                 letter = {letter}
+                trying = {trying.includes(index+12).toString()}
                 onClick = {this.flip.bind(this, index+12)}
-                try = {trying.includes(index+12).toString()}
-                don = {done.includes(index+12).toString()}
                 key = {index+12}/>
               )}
           </div>
@@ -83,39 +99,21 @@ class Memory extends React.Component {
   }
 
   flip(index) {
-    const {letters, trying ,done} = this.state;
-    console.log(index);
-    console.log(letters[index]);
-    if(trying == 0) {
-      this.setState({trying: trying.concat(index)});
-    }
-    else {
-      console.log("is being compared to");
-      console.log(trying[0]);
-      console.log(letters[trying[0]]);
-      if (letters[index] == letters[trying[0]]) {
-        this.setState({
-          trying:[], done:done.concat(trying[0], index)});
-        }
-      else {
-        this.setState({trying:[trying[0], index]});
-        setTimeout(() => {
-          this.setState({trying: []})
-        }, 500);
-      }
+      if (!this.pause) {
+          this.channel.push("guess", index).
+          receive("ok", this.got_view.bind(this));
       }
     }
   }
 
 let Letter = (props) => {
-  if(props.don == "true") {
-        return <button type="button" disabled> {props.letter} </button>
+  if(props.letter == " - ") {
+      return <button type="button" className="hidden" onClick={() => props.onClick()}> - </button>
   }
   else if(props.try == "true") {
     return <button type="button" className="trying"> {props.letter} </button>
   }
-  else if(props.don == "false" && props.try == "false") {
-    return <button type="button" className="hidden" onClick={() => props.onClick()}>  </button>
+  else {
+      return <button type="button" disabled> {props.letter} </button>
   }
-
 }

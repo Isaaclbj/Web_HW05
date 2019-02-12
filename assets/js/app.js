@@ -20,7 +20,8 @@ import $ from "jquery";
 import game_init from "./starter-game";
 
 $(() => {
-  let root = $('#root')[0];
-  game_init(root);
+  let root = document.getElementById('root');
+  let channel = socet.channel("games:" + window.gameName, {});
+  game_init(root, channel);
 });
 
